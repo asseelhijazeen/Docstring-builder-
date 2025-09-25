@@ -1,0 +1,57 @@
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Store your API key in .env file in the project root and insert it in this form: OPENAI_API_KEY=sk-proj-***
+load_dotenv(override=True)
+openai_api_key = os.getenv('OPENAI_API_KEY')
+openai = OpenAI()
+
+system_prompt = "You are a helpful code assistant that add docstrings to code."
+
+def build_user_prompt(code):
+    user_prompt = "Add a docstring to this code using Sphinx docstring style, and add type annotations into the function.\n"
+    user_prompt += "This is the code:\n"
+    user_prompt += code
+    user_prompt += "Don't add any explanations, just provide pure code to be run directly, and remove any extras like ```python."
+    return user_prompt
+
+def docstring_assistant(code):
+    user_prompt = build_user_prompt(code)
+    prompts = [
+    {"role": "assistant", "content": system_prompt},
+    {"role": "user", "content": user_prompt}
+]
+    response=openai.chat.completions.create(model='gpt-4o-mini', messages=prompts)
+    return response.choices[0].message.content
+
+# You can insert your function here:
+code = """
+def convert_docs_to_docx(directory):
+    word = win32.gencache.EnsureDispatch("Word.Application")
+    word.Visible = False
+    word.DisplayAlerts = False
+
+    for doc_file in Path(directory).rglob("*.doc"):
+        # Skip already-converted .docx
+        if doc_file.suffix.lower() != ".doc" or doc_file.name.endswith("~"):
+            continue
+
+        docx_file = doc_file.with_suffix(".docx")
+        if docx_file.exists():
+            print(f"Already exists: {docx_file}")
+            continue
+
+        try:
+            doc = word.Documents.Open(str(doc_file))
+            doc.SaveAs(str(docx_file), FileFormat=16)  # 16 = wdFormatXMLDocument
+            doc.Close()
+            print(f"Converted: {doc_file.name} → {docx_file.name}")
+        except Exception as e:
+            print(f"Failed to convert {doc_file.name}: {e}")
+
+    word.Quit()
+    print("All done.")
+    """
+
+print(docstring_assistant(code))
